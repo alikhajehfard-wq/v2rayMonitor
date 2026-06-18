@@ -19,31 +19,38 @@ def api():
         return jsonify({"status": "error", "message": "no url"})
 
     try:
-        # 🔥 مهم: شبیه مرورگر شدن
         headers = {
-            "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15"
+            "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)"
         }
 
-        r = requests.get(url, headers=headers, timeout=20, allow_redirects=True)
-
+        r = requests.get(url, headers=headers, timeout=20)
         text = r.text
 
-        # اگر هنوز base64 بود یعنی HTML نگرفته
-        if "vless://" in text or len(text) < 200:
-            return jsonify({"status": "not_html", "debug_sample": text[:500]})
+        # 🔥 1. اول دنبال Remained / Remaining / Usage
+        patterns = [
+            r"Remained[^0-9]{0,10}(\d+(?:\.\d+)?)\s*GB",
+            r"Remaining[^0-9]{0,10}(\d+(?:\.\d+)?)\s*GB",
+            r"(\d+(?:\.\d+)?)\s*GB",
+        ]
 
-        # استخراج GB
-        match = re.search(r"Remained.*?(\d+(?:\.\d+)?)\s*GB", text, re.IGNORECASE)
+        value = None
 
-        if not match:
-            match = re.search(r"(\d+(?:\.\d+)?)\s*GB", text)
+        for p in patterns:
+            m = re.search(p, text, re.IGNORECASE)
+            if m:
+                value = float(m.group(1))
+                break
 
-        if not match:
-            return jsonify({"status": "not_found", "debug_sample": text[:1000]})
+        # 🔥 2. اگر بالا نگرفت → از آخرین عدد GB در صفحه استفاده کن
+        if value is None:
+            all_matches = re.findall(r"(\d+(?:\.\d+)?)\s*GB", text)
+            if all_matches:
+                value = float(all_matches[-1])  # آخرین عدد (معمولاً Remained است)
 
-        remaining = float(match.group(1))
+        if value is None:
+            return jsonify({"status": "not_found", "debug_sample": text[:800]})
 
-        return jsonify({"status": "ok", "remaining": remaining})
+        return jsonify({"status": "ok", "remaining": value})
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)})

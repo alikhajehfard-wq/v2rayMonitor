@@ -19,19 +19,26 @@ def api():
         return jsonify({"status": "error", "message": "no url"})
 
     try:
-        # گرفتن صفحه
         r = requests.get(url, timeout=15)
         text = r.text
 
-        # --- پیدا کردن همه GB ها (قوی و مطمئن) ---
-        matches = re.findall(r"(\d+(?:\.\d+)?)\s*GB", text)
+        # 🔥 مهم: دنبال Remained / Remaining / Usage / Total
+        patterns = [
+            r"Remained\s*</td>\s*<td[^>]*>(\d+(?:\.\d+)?)\s*GB",
+            r"Remaining\s*</td>\s*<td[^>]*>(\d+(?:\.\d+)?)\s*GB",
+            r"(\d+(?:\.\d+)?)\s*GB",
+        ]
 
-        # اگر پیدا نشد
-        if not matches:
-            return jsonify({"status": "not_found", "debug_sample": text[:800]})
+        remaining = None
 
-        # اولین مقدار را می‌گیریم (remaining)
-        remaining = float(matches[0])
+        for p in patterns:
+            match = re.search(p, text, re.IGNORECASE)
+            if match:
+                remaining = float(match.group(1))
+                break
+
+        if remaining is None:
+            return jsonify({"status": "not_found", "debug_sample": text[:1000]})
 
         return jsonify({"status": "ok", "remaining": remaining})
 

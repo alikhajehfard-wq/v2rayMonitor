@@ -7,29 +7,36 @@ app = Flask(__name__)
 
 @app.route("/")
 def home():
-    return "V2ray Monitor API Running"
+    return "V2ray Monitor Running"
 
 
 @app.route("/api")
 def api():
+
     url = request.args.get("url")
 
+    if not url:
+        return jsonify({"status": "error", "message": "no url"})
+
     try:
-        r = requests.get(url, timeout=10)
+        # گرفتن صفحه
+        r = requests.get(url, timeout=15)
         text = r.text
 
-        # پیدا کردن مقدار GB
-        match = re.search(r"(\d+(\.\d+)?)\s*GB", text)
+        # --- پیدا کردن همه GB ها (قوی و مطمئن) ---
+        matches = re.findall(r"(\d+(?:\.\d+)?)\s*GB", text)
 
-        if not match:
-            return jsonify({"error": "not found"})
+        # اگر پیدا نشد
+        if not matches:
+            return jsonify({"status": "not_found", "debug_sample": text[:800]})
 
-        remaining = float(match.group(1))
+        # اولین مقدار را می‌گیریم (remaining)
+        remaining = float(matches[0])
 
-        return jsonify({"remaining": remaining})
+        return jsonify({"status": "ok", "remaining": remaining})
 
     except Exception as e:
-        return jsonify({"error": str(e)})
+        return jsonify({"status": "error", "message": str(e)})
 
 
 if __name__ == "__main__":

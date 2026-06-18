@@ -26,31 +26,25 @@ def api():
         r = requests.get(url, headers=headers, timeout=20)
         text = r.text
 
-        # 🔥 1. اول دنبال Remained / Remaining / Usage
-        patterns = [
-            r"Remained[^0-9]{0,10}(\d+(?:\.\d+)?)\s*GB",
-            r"Remaining[^0-9]{0,10}(\d+(?:\.\d+)?)\s*GB",
-            r"(\d+(?:\.\d+)?)\s*GB",
-        ]
+        # 🚀 1. بهترین حالت: مستقیم از data-remained
+        match = re.search(r'data-remained="([\d.]+)GB"', text)
 
-        value = None
+        if match:
+            return jsonify({"status": "ok", "remaining": float(match.group(1))})
 
-        for p in patterns:
-            m = re.search(p, text, re.IGNORECASE)
-            if m:
-                value = float(m.group(1))
-                break
+        # 🚀 2. fallback: Remained داخل HTML
+        match = re.search(r"Remained.*?(\d+(?:\.\d+)?)\s*GB", text, re.IGNORECASE)
 
-        # 🔥 2. اگر بالا نگرفت → از آخرین عدد GB در صفحه استفاده کن
-        if value is None:
-            all_matches = re.findall(r"(\d+(?:\.\d+)?)\s*GB", text)
-            if all_matches:
-                value = float(all_matches[-1])  # آخرین عدد (معمولاً Remained است)
+        if match:
+            return jsonify({"status": "ok", "remaining": float(match.group(1))})
 
-        if value is None:
-            return jsonify({"status": "not_found", "debug_sample": text[:800]})
+        # 🚀 3. fallback آخر
+        match = re.search(r"(\d+(?:\.\d+)?)\s*GB", text)
 
-        return jsonify({"status": "ok", "remaining": value})
+        if match:
+            return jsonify({"status": "ok", "remaining": float(match.group(1))})
+
+        return jsonify({"status": "not_found", "debug_sample": text[:800]})
 
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)})
